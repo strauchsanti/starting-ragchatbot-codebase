@@ -254,6 +254,15 @@ header h1 {
     text-decoration: underline;
 }
 
+.message-content a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.message-content a:hover {
+    text-decoration: underline;
+}
+
 /* Markdown formatting styles */
 .message-content h1,
 .message-content h2,
