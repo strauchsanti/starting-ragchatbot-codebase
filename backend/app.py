@@ -90,6 +90,12 @@ async def get_course_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/session/{session_id}")
+async def delete_session(session_id: str):
+    """Discard a conversation session (idempotent: unknown ids are not an error)"""
+    deleted = rag_system.session_manager.delete_session(session_id)
+    return {"deleted": deleted}
+
 @app.on_event("startup")
 async def startup_event():
     """Load initial documents on startup"""

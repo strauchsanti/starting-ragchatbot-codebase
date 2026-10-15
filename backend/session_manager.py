@@ -55,6 +55,10 @@ class SessionManager:
         
         return "\n".join(formatted_messages)
     
+    def delete_session(self, session_id: str) -> bool:
+        """Remove a session entirely; returns whether it existed"""
+        return self.sessions.pop(session_id, None) is not None
+
     def clear_session(self, session_id: str):
         """Clear all messages from a session"""
         if session_id in self.sessions:
