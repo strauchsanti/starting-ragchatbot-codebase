@@ -83,7 +83,12 @@ Provide only the direct answer to what was asked.
             return self._handle_tool_execution(response, api_params, tool_manager)
         
         # Return direct response
-        return response.content[0].text
+        return self._extract_text(response)
+
+    @staticmethod
+    def _extract_text(response) -> str:
+        """Return the first text block; content may start with a thinking block"""
+        return next(block.text for block in response.content if block.type == "text")
     
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
@@ -131,4 +136,4 @@ Provide only the direct answer to what was asked.
         
         # Get final response
         final_response = self.client.messages.create(**final_params)
-        return final_response.content[0].text
+        return self._extract_text(final_response)
