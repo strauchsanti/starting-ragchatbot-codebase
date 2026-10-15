@@ -459,6 +459,7 @@ header h1 {
 .suggested-header,
 .new-chat-button {
     font-family: inherit;
+    line-height: inherit;
     text-align: left;
     font-size: 0.875rem;
     font-weight: 600;
