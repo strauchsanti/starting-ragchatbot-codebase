@@ -78,7 +78,7 @@ class CourseSearchTool(Tool):
             filter_info = ""
             if course_name:
                 filter_info += f" in course '{course_name}'"
-            if lesson_number:
+            if lesson_number is not None:
                 filter_info += f" in lesson {lesson_number}"
             return f"No relevant content found{filter_info}."
         

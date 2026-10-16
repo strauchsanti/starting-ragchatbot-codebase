@@ -39,7 +39,7 @@ Provide only the direct answer to what was asked.
         # Pre-build base API parameters
         self.base_params = {
             "model": self.model,
-            "max_tokens": 800
+            "max_tokens": 2000
         }
     
     def generate_response(self, query: str,
@@ -91,7 +91,10 @@ Provide only the direct answer to what was asked.
     @staticmethod
     def _extract_text(response) -> str:
         """Return the first text block; content may start with a thinking block"""
-        return next(block.text for block in response.content if block.type == "text")
+        text = next((block.text for block in response.content if block.type == "text"), "")
+        if not text:
+            return "Sorry, I couldn't generate a response. Please try again."
+        return text
     
     def _handle_tool_execution(self, initial_response, base_params: Dict[str, Any], tool_manager):
         """
@@ -115,16 +118,20 @@ Provide only the direct answer to what was asked.
         tool_results = []
         for content_block in initial_response.content:
             if content_block.type == "tool_use":
-                tool_result = tool_manager.execute_tool(
-                    content_block.name, 
-                    **content_block.input
-                )
-                
-                tool_results.append({
+                result_block = {
                     "type": "tool_result",
                     "tool_use_id": content_block.id,
-                    "content": tool_result
-                })
+                }
+                try:
+                    result_block["content"] = tool_manager.execute_tool(
+                        content_block.name,
+                        **content_block.input
+                    )
+                except Exception as e:
+                    # Report the failure to Claude instead of failing the whole request
+                    result_block["content"] = f"Tool error: {e}"
+                    result_block["is_error"] = True
+                tool_results.append(result_block)
         
         # Add tool results as single message
         if tool_results:
