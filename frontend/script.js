@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupThemeToggle() {
     const root = document.documentElement;
     const toggle = document.getElementById('themeToggle');
+    let transitionTimer = null;
 
     const syncLabel = () => {
         const isLight = root.dataset.theme === 'light';
@@ -35,11 +36,26 @@ function setupThemeToggle() {
         toggle.setAttribute('aria-pressed', String(isLight));
     };
 
+    const applyTheme = (theme) => {
+        // Enable color transitions on every element only for the duration of the switch
+        root.classList.add('theme-transition');
+        clearTimeout(transitionTimer);
+        transitionTimer = setTimeout(() => root.classList.remove('theme-transition'), 350);
+        root.dataset.theme = theme;
+        syncLabel();
+    };
+
     toggle.addEventListener('click', () => {
         const next = root.dataset.theme === 'light' ? 'dark' : 'light';
-        root.dataset.theme = next;
+        applyTheme(next);
         try { localStorage.setItem('theme', next); } catch (e) {}
-        syncLabel();
+    });
+
+    // Follow the OS setting until the user makes an explicit choice
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+        let saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (err) {}
+        if (!saved) applyTheme(e.matches ? 'light' : 'dark');
     });
 
     syncLabel();
