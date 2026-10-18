@@ -16,5 +16,16 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "api: FastAPI endpoint tests (no real RAG system, ChromaDB or Anthropic calls)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
 ]
