@@ -1,9 +1,10 @@
 import anthropic
 from typing import List, Optional, Dict, Any
 
+
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
-    
+
     # Static system prompt to avoid rebuilding on each call
     SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to tools for course information.
 
@@ -33,44 +34,44 @@ All responses must be:
 4. **Example-supported** - Include relevant examples when they aid understanding
 Provide only the direct answer to what was asked.
 """
-    
+
     # Max sequential tool rounds per query; the request after the last round omits tools
     MAX_TOOL_ROUNDS = 2
 
     def __init__(self, api_key: str, model: str):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
-        
+
         # Pre-build base API parameters
-        self.base_params = {
-            "model": self.model,
-            "max_tokens": 2000
-        }
-    
-    def generate_response(self, query: str,
-                         conversation_history: Optional[str] = None,
-                         tools: Optional[List] = None,
-                         tool_manager=None) -> str:
+        self.base_params = {"model": self.model, "max_tokens": 2000}
+
+    def generate_response(
+        self,
+        query: str,
+        conversation_history: Optional[str] = None,
+        tools: Optional[List] = None,
+        tool_manager=None,
+    ) -> str:
         """
         Generate AI response with optional tool usage and conversation context.
-        
+
         Args:
             query: The user's question or request
             conversation_history: Previous messages for context
             tools: Available tools the AI can use
             tool_manager: Manager to execute tools
-            
+
         Returns:
             Generated response as string
         """
-        
+
         # Build system content efficiently - avoid string ops when possible
         system_content = (
             f"{self.SYSTEM_PROMPT}\n\nPrevious conversation:\n{conversation_history}"
-            if conversation_history 
+            if conversation_history
             else self.SYSTEM_PROMPT
         )
-        
+
         messages = [{"role": "user", "content": query}]
 
         # Get response from Claude
@@ -85,13 +86,15 @@ Provide only the direct answer to what was asked.
         # Return direct response
         return self._extract_text(response)
 
-    def _call_api(self, messages: List[Dict[str, Any]], system: str, tools: Optional[List] = None):
+    def _call_api(
+        self, messages: List[Dict[str, Any]], system: str, tools: Optional[List] = None
+    ):
         """Single place that calls the API; tools are offered only when given"""
         params = {
             **self.base_params,
             # Copy so later appends don't alter what this call was made with
             "messages": list(messages),
-            "system": system
+            "system": system,
         }
         if tools:
             params["tools"] = tools
@@ -101,13 +104,21 @@ Provide only the direct answer to what was asked.
     @staticmethod
     def _extract_text(response) -> str:
         """Return the first text block; content may start with a thinking block"""
-        text = next((block.text for block in response.content if block.type == "text"), "")
+        text = next(
+            (block.text for block in response.content if block.type == "text"), ""
+        )
         if not text:
             return "Sorry, I couldn't generate a response. Please try again."
         return text
-    
-    def _handle_tool_execution(self, initial_response, messages: List[Dict[str, Any]],
-                               system: str, tools: Optional[List], tool_manager):
+
+    def _handle_tool_execution(
+        self,
+        initial_response,
+        messages: List[Dict[str, Any]],
+        system: str,
+        tools: Optional[List],
+        tool_manager,
+    ):
         """
         Run up to MAX_TOOL_ROUNDS sequential tool rounds, each followed by a separate API request.
 
@@ -128,7 +139,9 @@ Provide only the direct answer to what was asked.
         response = initial_response
         rounds = 0
 
-        while response.stop_reason == "tool_use" and any(b.type == "tool_use" for b in response.content):
+        while response.stop_reason == "tool_use" and any(
+            b.type == "tool_use" for b in response.content
+        ):
             messages.append({"role": "assistant", "content": response.content})
             tool_results, failed = self._execute_tool_blocks(response, tool_manager)
             messages.append({"role": "user", "content": tool_results})
@@ -154,8 +167,7 @@ Provide only the direct answer to what was asked.
                 }
                 try:
                     result_block["content"] = tool_manager.execute_tool(
-                        content_block.name,
-                        **content_block.input
+                        content_block.name, **content_block.input
                     )
                 except Exception as e:
                     # Report the failure to Claude instead of failing the whole request

@@ -1,4 +1,5 @@
 """Tests that AIGenerator correctly offers and invokes the CourseSearchTool (ai_generator.py)."""
+
 from unittest.mock import MagicMock
 
 import pytest
@@ -53,24 +54,45 @@ class TestToolOffering:
 
 
 class TestToolExecutionFlow:
-    def test_direct_answer_makes_one_call_and_no_tool_exec(self, gen, mock_client, tool_manager):
-        mock_client.messages.create.return_value = response(text_block("4"), stop_reason="end_turn")
-        assert gen.generate_response("2+2?", tools=TOOLS, tool_manager=tool_manager) == "4"
+    def test_direct_answer_makes_one_call_and_no_tool_exec(
+        self, gen, mock_client, tool_manager
+    ):
+        mock_client.messages.create.return_value = response(
+            text_block("4"), stop_reason="end_turn"
+        )
+        assert (
+            gen.generate_response("2+2?", tools=TOOLS, tool_manager=tool_manager) == "4"
+        )
         assert mock_client.messages.create.call_count == 1
         tool_manager.execute_tool.assert_not_called()
 
-    def test_tool_use_executes_tool_with_claudes_arguments(self, gen, mock_client, tool_manager):
+    def test_tool_use_executes_tool_with_claudes_arguments(
+        self, gen, mock_client, tool_manager
+    ):
         mock_client.messages.create.side_effect = [
-            response(tool_use_block("search_course_content", SEARCH_INPUT), stop_reason="tool_use"),
+            response(
+                tool_use_block("search_course_content", SEARCH_INPUT),
+                stop_reason="tool_use",
+            ),
             response(text_block("answer")),
         ]
         out = gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
-        tool_manager.execute_tool.assert_called_once_with("search_course_content", **SEARCH_INPUT)
+        tool_manager.execute_tool.assert_called_once_with(
+            "search_course_content", **SEARCH_INPUT
+        )
         assert out == "answer"
 
-    def test_second_call_contains_tool_result_and_keeps_tools(self, gen, mock_client, tool_manager):
-        first = response(tool_use_block("search_course_content", SEARCH_INPUT, id="toolu_X"), stop_reason="tool_use")
-        mock_client.messages.create.side_effect = [first, response(text_block("answer"))]
+    def test_second_call_contains_tool_result_and_keeps_tools(
+        self, gen, mock_client, tool_manager
+    ):
+        first = response(
+            tool_use_block("search_course_content", SEARCH_INPUT, id="toolu_X"),
+            stop_reason="tool_use",
+        )
+        mock_client.messages.create.side_effect = [
+            first,
+            response(text_block("answer")),
+        ]
         gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
         assert mock_client.messages.create.call_count == 2
         second = mock_client.messages.create.call_args_list[1].kwargs
@@ -79,36 +101,63 @@ class TestToolExecutionFlow:
         msgs = second["messages"]
         assert [m["role"] for m in msgs] == ["user", "assistant", "user"]
         assert msgs[1]["content"] == first.content
-        assert msgs[2]["content"] == [{"type": "tool_result", "tool_use_id": "toolu_X",
-                                        "content": "[Course - Lesson 1]\nMCP is a protocol"}]
-        assert second["system"] == mock_client.messages.create.call_args_list[0].kwargs["system"]
+        assert msgs[2]["content"] == [
+            {
+                "type": "tool_result",
+                "tool_use_id": "toolu_X",
+                "content": "[Course - Lesson 1]\nMCP is a protocol",
+            }
+        ]
+        assert (
+            second["system"]
+            == mock_client.messages.create.call_args_list[0].kwargs["system"]
+        )
 
     def test_thinking_block_before_text_is_skipped(self, gen, mock_client):
-        mock_client.messages.create.return_value = response(thinking_block(), text_block("real"))
+        mock_client.messages.create.return_value = response(
+            thinking_block(), text_block("real")
+        )
         assert gen.generate_response("q") == "real"
 
     def test_thinking_block_before_tool_use(self, gen, mock_client, tool_manager):
         mock_client.messages.create.side_effect = [
-            response(thinking_block(), text_block("let me search"),
-                     tool_use_block("search_course_content", SEARCH_INPUT), stop_reason="tool_use"),
+            response(
+                thinking_block(),
+                text_block("let me search"),
+                tool_use_block("search_course_content", SEARCH_INPUT),
+                stop_reason="tool_use",
+            ),
             response(thinking_block(), text_block("final")),
         ]
-        assert gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager) == "final"
+        assert (
+            gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
+            == "final"
+        )
 
     def test_parallel_tool_calls_all_executed(self, gen, mock_client, tool_manager):
         mock_client.messages.create.side_effect = [
-            response(tool_use_block("search_course_content", {"query": "a"}, id="1"),
-                     tool_use_block("get_course_outline", {"course_title": "b"}, id="2"), stop_reason="tool_use"),
+            response(
+                tool_use_block("search_course_content", {"query": "a"}, id="1"),
+                tool_use_block("get_course_outline", {"course_title": "b"}, id="2"),
+                stop_reason="tool_use",
+            ),
             response(text_block("done")),
         ]
         gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
         assert tool_manager.execute_tool.call_count == 2
-        results = mock_client.messages.create.call_args_list[1].kwargs["messages"][-1]["content"]
+        results = mock_client.messages.create.call_args_list[1].kwargs["messages"][-1][
+            "content"
+        ]
         assert [r["tool_use_id"] for r in results] == ["1", "2"]
 
-    def test_tool_use_without_tool_manager_returns_text_not_crash(self, gen, mock_client):
+    def test_tool_use_without_tool_manager_returns_text_not_crash(
+        self, gen, mock_client
+    ):
         mock_client.messages.create.return_value = response(
-            text_block("searching"), tool_use_block("search_course_content", SEARCH_INPUT), stop_reason="tool_use")
+            text_block("searching"),
+            tool_use_block("search_course_content", SEARCH_INPUT),
+            stop_reason="tool_use",
+        )
         assert gen.generate_response("q", tools=TOOLS, tool_manager=None) == "searching"
 
 
@@ -116,11 +165,17 @@ OUTLINE_INPUT = {"course_title": "MCP"}
 
 
 def outline_use(id="o1"):
-    return response(tool_use_block("get_course_outline", OUTLINE_INPUT, id=id), stop_reason="tool_use")
+    return response(
+        tool_use_block("get_course_outline", OUTLINE_INPUT, id=id),
+        stop_reason="tool_use",
+    )
 
 
 def search_use(id="s1", input=None):
-    return response(tool_use_block("search_course_content", input or SEARCH_INPUT, id=id), stop_reason="tool_use")
+    return response(
+        tool_use_block("search_course_content", input or SEARCH_INPUT, id=id),
+        stop_reason="tool_use",
+    )
 
 
 def calls(mock_client):
@@ -128,36 +183,66 @@ def calls(mock_client):
 
 
 class TestSequentialToolCalls:
-    def test_two_rounds_make_three_requests_and_return_final_text(self, gen, mock_client, tool_manager):
-        tool_manager.execute_tool.side_effect = ["Lesson 4: Prompt caching", "[Other course] caching intro"]
+    def test_two_rounds_make_three_requests_and_return_final_text(
+        self, gen, mock_client, tool_manager
+    ):
+        tool_manager.execute_tool.side_effect = [
+            "Lesson 4: Prompt caching",
+            "[Other course] caching intro",
+        ]
         mock_client.messages.create.side_effect = [
             outline_use(),
             search_use(input={"query": "Prompt caching"}),
             response(text_block("Course Y covers it")),
         ]
-        out = gen.generate_response("same topic as lesson 4 of MCP?", tools=TOOLS, tool_manager=tool_manager)
+        out = gen.generate_response(
+            "same topic as lesson 4 of MCP?", tools=TOOLS, tool_manager=tool_manager
+        )
         assert out == "Course Y covers it"
         assert mock_client.messages.create.call_count == 3
         assert [c.args[0] for c in tool_manager.execute_tool.call_args_list] == [
-            "get_course_outline", "search_course_content"]
-        assert tool_manager.execute_tool.call_args_list[1].kwargs == {"query": "Prompt caching"}
+            "get_course_outline",
+            "search_course_content",
+        ]
+        assert tool_manager.execute_tool.call_args_list[1].kwargs == {
+            "query": "Prompt caching"
+        }
 
-    def test_stops_after_one_round_when_no_further_tool_use(self, gen, mock_client, tool_manager):
-        mock_client.messages.create.side_effect = [search_use(), response(text_block("done"))]
-        assert gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager) == "done"
+    def test_stops_after_one_round_when_no_further_tool_use(
+        self, gen, mock_client, tool_manager
+    ):
+        mock_client.messages.create.side_effect = [
+            search_use(),
+            response(text_block("done")),
+        ]
+        assert (
+            gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager) == "done"
+        )
         assert mock_client.messages.create.call_count == 2
         assert tool_manager.execute_tool.call_count == 1
 
-    def test_capped_at_two_rounds_even_if_claude_keeps_asking(self, gen, mock_client, tool_manager):
+    def test_capped_at_two_rounds_even_if_claude_keeps_asking(
+        self, gen, mock_client, tool_manager
+    ):
         mock_client.messages.create.side_effect = [
-            search_use("1"), search_use("2"), search_use("3"), search_use("4")]
+            search_use("1"),
+            search_use("2"),
+            search_use("3"),
+            search_use("4"),
+        ]
         out = gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
         assert isinstance(out, str)
         assert tool_manager.execute_tool.call_count == 2
         assert mock_client.messages.create.call_count == 3
 
-    def test_tools_offered_on_first_two_requests_but_not_after_the_cap(self, gen, mock_client, tool_manager):
-        mock_client.messages.create.side_effect = [search_use("1"), search_use("2"), response(text_block("x"))]
+    def test_tools_offered_on_first_two_requests_but_not_after_the_cap(
+        self, gen, mock_client, tool_manager
+    ):
+        mock_client.messages.create.side_effect = [
+            search_use("1"),
+            search_use("2"),
+            response(text_block("x")),
+        ]
         gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
         first, second, third = calls(mock_client)
         assert first["tools"] == TOOLS and second["tools"] == TOOLS
@@ -167,11 +252,21 @@ class TestSequentialToolCalls:
         tool_manager.execute_tool.side_effect = ["outline text", "search text"]
         r1, r2 = outline_use("o1"), search_use("s1")
         mock_client.messages.create.side_effect = [r1, r2, response(text_block("x"))]
-        gen.generate_response("the question", tools=TOOLS, tool_manager=tool_manager,
-                              conversation_history="User: a\nAssistant: b")
+        gen.generate_response(
+            "the question",
+            tools=TOOLS,
+            tool_manager=tool_manager,
+            conversation_history="User: a\nAssistant: b",
+        )
         third = calls(mock_client)[2]
         msgs = third["messages"]
-        assert [m["role"] for m in msgs] == ["user", "assistant", "user", "assistant", "user"]
+        assert [m["role"] for m in msgs] == [
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+            "user",
+        ]
         assert msgs[0]["content"] == "the question"
         assert msgs[1]["content"] == r1.content and msgs[3]["content"] == r2.content
         assert msgs[2]["content"][0]["content"] == "outline text"
@@ -179,26 +274,48 @@ class TestSequentialToolCalls:
         assert len({c["system"] for c in calls(mock_client)}) == 1
         assert "User: a" in third["system"]
 
-    def test_failure_in_first_round_ends_with_toolless_request(self, gen, mock_client, tool_manager):
+    def test_failure_in_first_round_ends_with_toolless_request(
+        self, gen, mock_client, tool_manager
+    ):
         tool_manager.execute_tool.side_effect = RuntimeError("boom")
-        mock_client.messages.create.side_effect = [search_use(), response(text_block("sorry"))]
-        assert gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager) == "sorry"
+        mock_client.messages.create.side_effect = [
+            search_use(),
+            response(text_block("sorry")),
+        ]
+        assert (
+            gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
+            == "sorry"
+        )
         assert mock_client.messages.create.call_count == 2
         assert "tools" not in calls(mock_client)[1]
 
-    def test_failure_in_second_round_ends_the_loop(self, gen, mock_client, tool_manager):
+    def test_failure_in_second_round_ends_the_loop(
+        self, gen, mock_client, tool_manager
+    ):
         tool_manager.execute_tool.side_effect = ["ok", RuntimeError("boom")]
-        mock_client.messages.create.side_effect = [outline_use(), search_use(), response(text_block("partial"))]
-        assert gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager) == "partial"
+        mock_client.messages.create.side_effect = [
+            outline_use(),
+            search_use(),
+            response(text_block("partial")),
+        ]
+        assert (
+            gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
+            == "partial"
+        )
         last = calls(mock_client)[2]
         assert "tools" not in last
         assert last["messages"][-1]["content"][0]["is_error"] is True
 
-    def test_parallel_failure_still_returns_a_result_for_every_tool_use(self, gen, mock_client, tool_manager):
+    def test_parallel_failure_still_returns_a_result_for_every_tool_use(
+        self, gen, mock_client, tool_manager
+    ):
         tool_manager.execute_tool.side_effect = [RuntimeError("boom"), "fine"]
         mock_client.messages.create.side_effect = [
-            response(tool_use_block("search_course_content", SEARCH_INPUT, id="1"),
-                     tool_use_block("get_course_outline", OUTLINE_INPUT, id="2"), stop_reason="tool_use"),
+            response(
+                tool_use_block("search_course_content", SEARCH_INPUT, id="1"),
+                tool_use_block("get_course_outline", OUTLINE_INPUT, id="2"),
+                stop_reason="tool_use",
+            ),
             response(text_block("done")),
         ]
         gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
@@ -207,7 +324,11 @@ class TestSequentialToolCalls:
         assert results[0].get("is_error") is True and "is_error" not in results[1]
 
     def test_no_temperature_on_any_request(self, gen, mock_client, tool_manager):
-        mock_client.messages.create.side_effect = [search_use("1"), search_use("2"), response(text_block("x"))]
+        mock_client.messages.create.side_effect = [
+            search_use("1"),
+            search_use("2"),
+            response(text_block("x")),
+        ]
         gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
         assert all("temperature" not in c for c in calls(mock_client))
 
@@ -224,7 +345,10 @@ class TestFailureModes:
     def test_tool_exception_is_handled_gracefully(self, gen, mock_client, tool_manager):
         tool_manager.execute_tool.side_effect = RuntimeError("chroma exploded")
         mock_client.messages.create.side_effect = [
-            response(tool_use_block("search_course_content", SEARCH_INPUT), stop_reason="tool_use"),
+            response(
+                tool_use_block("search_course_content", SEARCH_INPUT),
+                stop_reason="tool_use",
+            ),
             response(text_block("Sorry, search failed")),
         ]
         # Desired: the error is fed back to Claude as an is_error tool_result and a reply is produced.
@@ -237,12 +361,19 @@ class TestFailureModes:
 
     def test_response_without_text_block_is_handled(self, gen, mock_client):
         # e.g. stop_reason=max_tokens while still "thinking"
-        mock_client.messages.create.return_value = response(thinking_block(), stop_reason="max_tokens")
+        mock_client.messages.create.return_value = response(
+            thinking_block(), stop_reason="max_tokens"
+        )
         assert isinstance(gen.generate_response("q"), str)
 
-    def test_final_response_without_text_block_is_handled(self, gen, mock_client, tool_manager):
+    def test_final_response_without_text_block_is_handled(
+        self, gen, mock_client, tool_manager
+    ):
         mock_client.messages.create.side_effect = [
-            response(tool_use_block("search_course_content", SEARCH_INPUT), stop_reason="tool_use"),
+            response(
+                tool_use_block("search_course_content", SEARCH_INPUT),
+                stop_reason="tool_use",
+            ),
             response(thinking_block(), stop_reason="max_tokens"),
         ]
         out = gen.generate_response("q", tools=TOOLS, tool_manager=tool_manager)
