@@ -12,11 +12,13 @@ A RAG chatbot over course transcripts: FastAPI backend, ChromaDB vector store, C
 uv sync                                   # install dependencies
 ./run.sh                                  # run the app (http://localhost:8000, API docs at /docs)
 cd backend && uv run uvicorn app:app --reload --port 8000   # equivalent manual start
+./scripts/format.sh                       # format code with black
+./scripts/check.sh                        # quality checks: black --check, then pytest
 ```
 
 - Always use `uv` to run the server and manage dependencies (`uv sync`, `uv run ...`). Never use `pip` directly.
 - Requires `ANTHROPIC_API_KEY` in a root-level `.env` (copy `.env.example`). The key must be workspace-scoped, otherwise the API returns a 400 about `anthropic-workspace-id`. `.env` is only read at startup, so restart after changing it.
-- There are no tests, linter, or build step configured. `main.py` at the root is an unused stub.
+- Formatting uses black (config in `pyproject.toml`); run `./scripts/format.sh` before committing. Tests live in `backend/tests`. No linter or build step is configured. `main.py` at the root is an unused stub.
 - **Always run the server from `backend/`.** `config.py` uses relative paths (`./chroma_db`) and `app.py` uses `../docs` and `../frontend`, so launching from another directory creates a second empty ChromaDB or breaks static serving.
 
 ## Architecture

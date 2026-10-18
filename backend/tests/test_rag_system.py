@@ -1,4 +1,5 @@
 """End-to-end tests of RAGSystem.query with a real vector store and a scripted Claude."""
+
 import os
 
 import pytest
@@ -34,7 +35,9 @@ def rag(real_store, mock_client):
 
 def script_search(rag, tool_input, final="Final answer"):
     rag.mock_client.messages.create.side_effect = [
-        response(tool_use_block("search_course_content", tool_input), stop_reason="tool_use"),
+        response(
+            tool_use_block("search_course_content", tool_input), stop_reason="tool_use"
+        ),
         response(text_block(final)),
     ]
 
@@ -48,13 +51,17 @@ class TestContentQueries:
     def test_both_tools_are_offered(self, rag):
         rag.mock_client.messages.create.return_value = response(text_block("hi"))
         rag.query("What is MCP?")
-        names = {t["name"] for t in rag.mock_client.messages.create.call_args.kwargs["tools"]}
+        names = {
+            t["name"] for t in rag.mock_client.messages.create.call_args.kwargs["tools"]
+        }
         assert names == {"search_course_content", "get_course_outline"}
 
     def test_query_is_wrapped_in_prompt(self, rag):
         rag.mock_client.messages.create.return_value = response(text_block("hi"))
         rag.query("What is MCP?")
-        content = rag.mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        content = rag.mock_client.messages.create.call_args.kwargs["messages"][0][
+            "content"
+        ]
         assert "What is MCP?" in content
 
     def test_content_query_returns_answer_and_sources(self, rag):
@@ -86,13 +93,19 @@ class TestContentQueries:
         assert second == []
 
     def test_lesson_and_course_filters_flow_through(self, rag):
-        script_search(rag, {"query": "overview", "course_name": "Computer Use", "lesson_number": 1})
+        script_search(
+            rag,
+            {"query": "overview", "course_name": "Computer Use", "lesson_number": 1},
+        )
         _, sources = rag.query("q")
         assert sources and all(s["label"].endswith("Lesson 1") for s in sources)
 
     def test_outline_query(self, rag):
         rag.mock_client.messages.create.side_effect = [
-            response(tool_use_block("get_course_outline", {"course_title": "Computer Use"}), stop_reason="tool_use"),
+            response(
+                tool_use_block("get_course_outline", {"course_title": "Computer Use"}),
+                stop_reason="tool_use",
+            ),
             response(text_block("outline")),
         ]
         rag.query("Outline of the computer use course")
@@ -100,7 +113,9 @@ class TestContentQueries:
         assert "Lessons (" in result and "Lesson 0:" in result
 
     def test_no_match_message_reaches_claude(self, rag):
-        script_search(rag, {"query": "x", "course_name": "Computer Use", "lesson_number": 999})
+        script_search(
+            rag, {"query": "x", "course_name": "Computer Use", "lesson_number": 999}
+        )
         rag.query("q")
         assert tool_result_sent_to_claude(rag).startswith("No relevant content found")
 
@@ -127,6 +142,7 @@ class TestErrorHandling:
         class Broken:
             def query(self, **kw):
                 raise RuntimeError("db")
+
         monkeypatch.setattr(rag.vector_store, "course_content", Broken())
         script_search(rag, {"query": "x"})
         answer, _ = rag.query("q")
@@ -140,7 +156,10 @@ class TestErrorHandling:
         assert answer == "Final answer"
 
 
-@pytest.mark.skipif(not os.environ.get("RUN_LIVE"), reason="set RUN_LIVE=1 to call the real Anthropic API")
+@pytest.mark.skipif(
+    not os.environ.get("RUN_LIVE"),
+    reason="set RUN_LIVE=1 to call the real Anthropic API",
+)
 class TestLive:
     def test_real_claude_searches_and_answers(self, real_store):
         cfg = Config()
@@ -152,9 +171,12 @@ class TestLive:
         def spy(name, **kw):
             calls.append((name, kw))
             return orig(name, **kw)
+
         tm.execute_tool = spy
         out = AIGenerator(cfg.ANTHROPIC_API_KEY, cfg.ANTHROPIC_MODEL).generate_response(
             "Answer this question about course materials: What does the computer use course teach about screenshots?",
-            tools=tm.get_tool_definitions(), tool_manager=tm)
+            tools=tm.get_tool_definitions(),
+            tool_manager=tm,
+        )
         assert calls and calls[0][0] == "search_course_content"
         assert isinstance(out, str) and out.strip()

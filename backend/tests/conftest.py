@@ -1,4 +1,5 @@
 """Shared fixtures. Tests build a throwaway ChromaDB from docs/ so the real backend/chroma_db is never touched."""
+
 import os
 import sys
 from types import SimpleNamespace
@@ -14,8 +15,8 @@ from config import Config  # noqa: E402
 from document_processor import DocumentProcessor  # noqa: E402
 from vector_store import VectorStore  # noqa: E402
 
-
 # ---- fake Anthropic response helpers ------------------------------------------------
+
 
 def text_block(text):
     return SimpleNamespace(type="text", text=text)
@@ -35,6 +36,7 @@ def response(*blocks, stop_reason="end_turn"):
 
 # ---- real vector store over the real transcripts, in a temp dir ---------------------
 
+
 @pytest.fixture(scope="session")
 def real_store(tmp_path_factory):
     path = tmp_path_factory.mktemp("chroma")
@@ -43,7 +45,9 @@ def real_store(tmp_path_factory):
     processor = DocumentProcessor(cfg.CHUNK_SIZE, cfg.CHUNK_OVERLAP)
     for name in sorted(os.listdir(DOCS_DIR)):
         if name.endswith(".txt"):
-            course, chunks = processor.process_course_document(os.path.join(DOCS_DIR, name))
+            course, chunks = processor.process_course_document(
+                os.path.join(DOCS_DIR, name)
+            )
             store.add_course_metadata(course)
             store.add_course_content(chunks)
     return store
