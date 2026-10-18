@@ -18,10 +18,32 @@ document.addEventListener('DOMContentLoaded', () => {
     courseTitles = document.getElementById('courseTitles');
     newChatButton = document.getElementById('newChatButton');
 
+    setupThemeToggle();
     setupEventListeners();
     createNewSession();
     loadCourseStats();
 });
+
+// Theme toggle
+function setupThemeToggle() {
+    const root = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+
+    const syncLabel = () => {
+        const isLight = root.dataset.theme === 'light';
+        toggle.setAttribute('aria-label', isLight ? 'Switch to dark theme' : 'Switch to light theme');
+        toggle.setAttribute('aria-pressed', String(isLight));
+    };
+
+    toggle.addEventListener('click', () => {
+        const next = root.dataset.theme === 'light' ? 'dark' : 'light';
+        root.dataset.theme = next;
+        try { localStorage.setItem('theme', next); } catch (e) {}
+        syncLabel();
+    });
+
+    syncLabel();
+}
 
 // Event Listeners
 function setupEventListeners() {
