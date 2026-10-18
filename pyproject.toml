@@ -17,6 +17,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "black>=26.10.1",
+    "httpx>=0.28.1",
     "pytest>=9.1.1",
 ]
 
@@ -24,3 +25,13 @@ dev = [
 line-length = 88
 target-version = ["py313"]
 extend-exclude = "/(chroma_db|\\.venv)/"
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "api: FastAPI endpoint tests (no real RAG system, ChromaDB or Anthropic calls)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
