@@ -73,6 +73,15 @@ html.theme-transition *::after {
                 fill 0.3s ease, stroke 0.3s ease, box-shadow 0.3s ease !important;
 }
 
+/* Text inside messages inherits its color from .message-content, which is already
+   transitioning. Transitioning the children too compounds the easing and makes the
+   text flash, so let them follow the parent's interpolated value instead. */
+html.theme-transition .message .message-content.message-content *,
+html.theme-transition .message .message-content.message-content *::before,
+html.theme-transition .message .message-content.message-content *::after {
+    transition: background-color 0.3s ease, border-color 0.3s ease !important;
+}
+
 /* Theme Toggle */
 .theme-toggle {
     position: fixed;
